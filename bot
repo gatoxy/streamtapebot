@@ -1,0 +1,46 @@
+import os
+import requests
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+
+# Token do seu bot do Telegram
+TOKEN = 'seu_token_aqui'
+
+# Token de acesso à API do Streamtape
+STREAMTAPE_API_KEY = 'seu_token_api_streamtape'
+
+# URL da API do Streamtape para upload de arquivos
+STREAMTAPE_UPLOAD_URL = 'https://streamtape.com/api/upload/post'
+
+def start(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Olá! Envie um arquivo para ser upado para o Streamtape.")
+
+def upload_file(update, context):
+    file = context.bot.get_file(update.message.document.file_id)
+    file_url = file.file_path
+    file_name = os.path.basename(file_url)
+    
+    response = requests.post(STREAMTAPE_UPLOAD_URL, files={'file': open(file_url, 'rb')}, data={'apikey': STREAMTAPE_API_KEY})
+    upload_data = response.json()
+    
+    if upload_data['success']:
+        streamtape_url = upload_data['result']['url']
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f"Arquivo upado com sucesso!\nLink do Streamtape: {streamtape_url}")
+    else:
+        error_message = upload_data['error']['message']
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f"Erro ao upar arquivo: {error_message}")
+
+def main():
+    updater = Updater(token=TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
+
+    start_handler = CommandHandler('start', start)
+    upload_handler = MessageHandler(Filters.document, upload_file)
+
+    dispatcher.add_handler(start_handler)
+    dispatcher.add_handler(upload_handler)
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
